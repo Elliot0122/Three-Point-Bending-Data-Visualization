@@ -82,9 +82,9 @@ class MainWindow(QMainWindow):
                 # Process data immediately
                 df = self.data_processor.process_file(self.file_path)
                 
-                # Create and show plot window
+                # Create and show plot window with data processor
                 file_name = file_path.split('/')[-1]  # Extract file name
-                self.plot_window = PlotWindow(df, file_name)
+                self.plot_window = PlotWindow(df, file_name, self.data_processor)  # Pass data_processor
                 self.plot_window.show()
                 
                 # Hide the main window

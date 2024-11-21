@@ -7,10 +7,11 @@ from matplotlib.figure import Figure
 from data_processor import DataProcessor
 
 class PlotWindow(QMainWindow):
-    def __init__(self, df, file_name):
+    def __init__(self, df, file_name, data_processor):
         super().__init__()
         self.df = df
         self.file_name = file_name
+        self.data_processor = data_processor
         self.setWindowTitle("Data Visualization")
         self.setFixedSize(1200, 700)
         
@@ -82,6 +83,28 @@ class PlotWindow(QMainWindow):
         left_layout.addWidget(self.x_combo)
         left_layout.addWidget(self.y_label)
         left_layout.addWidget(self.y_combo)
+        
+        # Add reset button for interactive points
+        self.reset_button = QPushButton("Reset Points")
+        self.reset_button.setFixedHeight(40)
+        self.reset_button.setStyleSheet("""
+            QPushButton {
+                background-color: #007BFF;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 14px;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                background-color: #0056b3;
+            }
+            QPushButton:pressed {
+                background-color: #004085;
+            }
+        """)
+        self.reset_button.clicked.connect(self.reset_interactive_points)
+        left_layout.addWidget(self.reset_button)
         
         # Add label for max value
         self.max_label = QLabel("")
@@ -211,28 +234,175 @@ class PlotWindow(QMainWindow):
             self.figure.clear()
             ax = self.figure.add_subplot(111)
             
-            # Create scatter plot with paired data points
-            ax.scatter(self.df[x_col], self.df[y_col], alpha=0.5, color='#1f77b4')
+            # Create scatter plot with smaller data points
+            ax.scatter(self.df[x_col], self.df[y_col], alpha=0.5, color='#1f77b4', s=10)
             
             # Highlight the max point in Load 1
             if y_col == "Load 1":
                 max_value = self.df['Load 1'].max()
                 max_index = self.df['Load 1'].idxmax()
-                ax.scatter(self.df[x_col][max_index], max_value, color='red', s=100, label='Max Load 1')
-                self.max_label.setText(f"Max Load 1: {max_value:.2f}")
-            
-            # Style the plot
-            ax.set_xlabel(x_col, fontsize=12)
-            ax.set_ylabel(y_col, fontsize=12)
-            ax.grid(True, linestyle='--', alpha=0.7)
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.legend()
-            
-            # Add some padding to the layout
-            self.figure.subplots_adjust(left=0.15, right=0.95, top=0.95, bottom=0.15)
-            self.canvas.draw()
+                max_x = self.df[x_col][max_index]
+                ax.scatter(max_x, max_value, color='red', s=100, label='Max Load 1')
+                # Add max point annotation
+                ax.annotate(f'({max_x}, {max_value})',
+                           xy=(max_x, max_value),
+                           xytext=(10, 10),
+                           textcoords='offset points',
+                           color='red')
+                
+                # Draw the line for max slope
+                if self.data_processor.slope_points and hasattr(self.data_processor, 'line_points'):
+                    # Draw the extended line
+                    (x1, y1), (x2, y2) = self.data_processor.line_points
+                    ax.plot([x1, x2], [y1, y2], color='purple', linewidth=2, 
+                           label=f'Max Slope: {self.data_processor.max_slope:.2f}')
+                    
+                    # Get the actual points for interactive points initialization
+                    (px1, py1), (px2, py2) = self.data_processor.slope_points
+                    
+                    # Store original points for reset functionality
+                    self.original_points = ((px1, py1), (px2, py2))
+                    
+                    # Add interactive points at the slope points positions (both blue)
+                    self.interactive_points = [
+                        ax.scatter(px1, py1, color='blue', s=100, picker=True),
+                        ax.scatter(px2, py2, color='blue', s=100, picker=True)
+                    ]
+                    
+                    # Draw line between interactive points
+                    self.interactive_line, = ax.plot([px1, px2], [py1, py2], 'b--', linewidth=1)
+                    
+                    # Add annotations for interactive points
+                    ax.annotate(f'({px1:.4f}, {py1:.4f})',
+                              xy=(px1, py1),
+                              xytext=(10, 10),
+                              textcoords='offset points',
+                              color='blue')
+                    ax.annotate(f'({px2:.4f}, {py2:.4f})',
+                              xy=(px2, py2),
+                              xytext=(10, -10),
+                              textcoords='offset points',
+                              color='blue')
+                    
+                    # Calculate current slope between interactive points
+                    if px2 != px1:  # Avoid division by zero
+                        current_slope = (py2 - py1) / (px2 - px1)
+                    else:
+                        current_slope = float('inf')
+                    
+                    # Add slope text boxes with better positioning and styling
+                    ax.text(0.02, 0.98, 
+                            f'Calculated Slope: {self.data_processor.max_slope:.4f}',
+                            transform=ax.transAxes,
+                            bbox=dict(
+                                facecolor='white',
+                                edgecolor='blue',
+                                alpha=0.8,
+                                boxstyle='round,pad=0.5'
+                            ),
+                            verticalalignment='top',
+                            color='blue',
+                            fontsize=10)
+                    
+                    # Add current slope text box below calculated slope
+                    ax.text(0.02, 0.92,  # Moved down for better spacing
+                            f'Current Slope: {current_slope:.4f}',
+                            transform=ax.transAxes,
+                            bbox=dict(
+                                facecolor='white',
+                                edgecolor='blue',
+                                alpha=0.8,
+                                boxstyle='round,pad=0.5'
+                            ),
+                            verticalalignment='top',
+                            color='blue',
+                            fontsize=10)
+                
+                self.selected_point = None
+                self.canvas.mpl_connect('pick_event', self.on_pick)
+                self.canvas.mpl_connect('motion_notify_event', self.on_motion)
+                self.canvas.mpl_connect('button_release_event', self.on_release)
+                
+                # Style the plot
+                ax.set_xlabel(x_col, fontsize=12)
+                ax.set_ylabel(y_col, fontsize=12)
+                ax.grid(True, linestyle='--', alpha=0.7)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                ax.legend()
+                
+                # Add some padding to the layout
+                self.figure.subplots_adjust(left=0.15, right=0.95, top=0.95, bottom=0.15)
+                self.canvas.draw()
     
+    def on_pick(self, event):
+        self.selected_point = event.artist
+        self.press = event.mouseevent.xdata, event.mouseevent.ydata
+
+    def on_motion(self, event):
+        if self.selected_point is not None and event.xdata is not None and event.ydata is not None:
+            # Find the closest x-value in the dataset
+            x_col = self.x_combo.currentText()
+            y_col = self.y_combo.currentText()
+            closest_index = (self.df[x_col] - event.xdata).abs().idxmin()
+            closest_x = self.df[x_col][closest_index]
+            closest_y = self.df[y_col][closest_index]
+            
+            # Move the point to the closest data point
+            self.selected_point.set_offsets([closest_x, closest_y])
+            
+            # Update the line between interactive points
+            x_coords = [point.get_offsets()[0][0] for point in self.interactive_points]
+            y_coords = [point.get_offsets()[0][1] for point in self.interactive_points]
+            self.interactive_line.set_data(x_coords, y_coords)
+            
+            # Calculate current slope between interactive points
+            if x_coords[1] != x_coords[0]:  # Avoid division by zero
+                current_slope = (y_coords[1] - y_coords[0]) / (x_coords[1] - x_coords[0])
+            else:
+                current_slope = float('inf')
+            
+            # Update point coordinates in annotations
+            ax = self.figure.gca()
+            for i, point in enumerate(self.interactive_points):
+                point_coords = point.get_offsets()[0]
+                if hasattr(self, f'point_{i+1}_annotation'):
+                    getattr(self, f'point_{i+1}_annotation').remove()
+                annotation = ax.annotate(
+                    f'({point_coords[0]:.4f}, {point_coords[1]:.4f})',
+                    xy=(point_coords[0], point_coords[1]),
+                    xytext=(10, 10 if i == 0 else -10),
+                    textcoords='offset points',
+                    color='blue'
+                )
+                setattr(self, f'point_{i+1}_annotation', annotation)
+            
+            # Update current slope text box with fixed position
+            if hasattr(self, 'slope_annotation'):
+                self.slope_annotation.remove()
+            self.slope_annotation = ax.text(
+                0.02, 0.92,  # Fixed position
+                f'Current Slope: {current_slope:.4f}',
+                transform=ax.transAxes,
+                bbox=dict(
+                    facecolor='white',
+                    edgecolor='blue',
+                    alpha=0.8,
+                    boxstyle='round,pad=0.5'
+                ),
+                verticalalignment='top',
+                horizontalalignment='left',  # Added for consistency
+                color='blue',
+                fontsize=10,
+                zorder=1000  # Ensure it stays on top
+            )
+            
+            # Redraw only the canvas
+            self.canvas.draw_idle()
+
+    def on_release(self, event):
+        self.selected_point = None
+
     def select_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -244,8 +414,8 @@ class PlotWindow(QMainWindow):
         if file_path:
             try:
                 # Process new file
-                data_processor = DataProcessor()
-                new_df = data_processor.process_file(file_path)
+                self.data_processor = DataProcessor()
+                new_df = self.data_processor.process_file(file_path)
                 
                 # Update DataFrame and dropdowns
                 self.df = new_df
@@ -258,3 +428,53 @@ class PlotWindow(QMainWindow):
                 
             except Exception as e:
                 print(f"Error processing file: {str(e)}") 
+
+    def reset_interactive_points(self):
+        """Reset interactive points to their original positions"""
+        if hasattr(self, 'original_points'):
+            (px1, py1), (px2, py2) = self.original_points
+            
+            # Update interactive points positions
+            self.interactive_points[0].set_offsets([px1, py1])
+            self.interactive_points[1].set_offsets([px2, py2])
+            
+            # Update the line
+            self.interactive_line.set_data([px1, px2], [py1, py2])
+            
+            # Update annotations
+            ax = self.figure.gca()
+            for i, point in enumerate(self.interactive_points):
+                point_coords = point.get_offsets()[0]
+                if hasattr(self, f'point_{i+1}_annotation'):
+                    getattr(self, f'point_{i+1}_annotation').remove()
+                annotation = ax.annotate(
+                    f'({point_coords[0]:.4f}, {point_coords[1]:.4f})',
+                    xy=(point_coords[0], point_coords[1]),
+                    xytext=(10, 10 if i == 0 else -10),
+                    textcoords='offset points',
+                    color='blue'
+                )
+                setattr(self, f'point_{i+1}_annotation', annotation)
+            
+            # Calculate and update current slope
+            current_slope = (py2 - py1) / (px2 - px1)
+            if hasattr(self, 'slope_annotation'):
+                self.slope_annotation.remove()
+            self.slope_annotation = ax.text(
+                0.02, 0.92,
+                f'Current Slope: {current_slope:.4f}',
+                transform=ax.transAxes,
+                bbox=dict(
+                    facecolor='white',
+                    edgecolor='blue',
+                    alpha=0.8,
+                    boxstyle='round,pad=0.5'
+                ),
+                verticalalignment='top',
+                horizontalalignment='left',
+                color='blue',
+                fontsize=10,
+                zorder=1000
+            )
+            
+            self.canvas.draw_idle()
