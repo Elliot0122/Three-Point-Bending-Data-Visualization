@@ -3,5 +3,5 @@ numpy
 pandas
 PyQt6
 PyQt6-Qt6
-PyQt6_sip==13
+PyQt6_sip
 scikit-learn
