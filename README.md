@@ -19,10 +19,8 @@ A Python-based application for visualizing and analyzing MRI data.
 
 2. **Create and Activate Conda Environment**
    ```bash
-   # Create environment from environment.yml
-   conda create --name mriviz python=3.8
+   conda create --name mriviz python=3.13
 
-   # Activate the environment
    conda activate mriviz
    ```
 
