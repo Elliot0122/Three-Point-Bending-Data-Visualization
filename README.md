@@ -5,11 +5,11 @@ A Python-based application for visualizing and analyzing MRI data.
 ## UI Demo
 
 ### Landing Page
-![Landing Page](public/landing%20page.png)
+![Landing Page](https://raw.githubusercontent.com/Elliot0122/Data-Visualization-for-MRI-Data/main/public/landing%20page.png)
 *File selection interface for data upload*
 
 ### Main Visualization
-![Main Page](public/main%20page.png)
+![Main Page](https://raw.githubusercontent.com/Elliot0122/Data-Visualization-for-MRI-Data/main/public/main%20page.png)
 *Interactive visualization interface featuring:*
 - Maximum Strength detection (red point)
 - Stiffness calculation (purple line)
