@@ -1,15 +1,15 @@
-# MRI Data Visualizer
+# Three Point Bending Data Visualization
 
-A Python-based application for visualizing and analyzing MRI data.
+A Python-based application for visualizing and analyzing three point bending data.
 
 ## UI Demo
 
 ### Landing Page
-![Landing Page](https://raw.githubusercontent.com/Elliot0122/Data-Visualization-for-MRI-Data/main/public/landing%20page.png)
+![Landing Page](public/landing%20page.png)
 *File selection interface for data upload*
 
 ### Main Visualization
-![Main Page](https://raw.githubusercontent.com/Elliot0122/Data-Visualization-for-MRI-Data/main/public/main%20page.png)
+![Main Page](public/main%20page.png)
 *Interactive visualization interface featuring:*
 - Maximum Strength detection (red point)
 - Stiffness calculation (purple line)
@@ -27,18 +27,18 @@ A Python-based application for visualizing and analyzing MRI data.
 
 1. **Clone or Download the Repository**
    ```bash
-   git clone git@github.com:Elliot0122/Data-Visualization-for-MRI-Data.git
-   cd Data-Visualization-for-MRI-Data
+   git clone git@github.com:Elliot0122/Three-Point-Bending-Data-Visualization.git
+   cd Three-Point-Bending-Data-Visualization
    ```
 
 2. **Create and Activate Conda Environment**
    ```bash
    #for Windows users
-   conda create --name mriviz python=3.9
+   conda create --name dataviz python=3.9
    #for MacOS users
-   conda create --name mriviz python=3.13
+   conda create --name dataviz python=3.13
 
-   conda activate mriviz
+   conda activate dataviz
    ```
 
 3. **Install Packages**

@@ -8,7 +8,7 @@ from plot_window import PlotWindow
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("MRI Data Visualizer")
+        self.setWindowTitle("Three Point Bending Data Visualization")
         self.setFixedSize(600, 400)
         
         # Create central widget
