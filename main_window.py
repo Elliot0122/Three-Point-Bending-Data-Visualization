@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QLabel, 
                            QPushButton, QFileDialog)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
 from data_processor import DataProcessor
 from plot_window import PlotWindow
 
@@ -47,24 +46,8 @@ class MainWindow(QMainWindow):
         
         # Set style
         self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f0f0f0;
-            }
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                font-size: 20px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-            }
             QLabel {
-                font-size: 20px;
+                font-size: 24px;
                 color: #333333;
             }
         """)
@@ -81,11 +64,8 @@ class MainWindow(QMainWindow):
             try:
                 self.file_path = file_path
                 # Process data immediately
-                df = self.data_processor.process_file(self.file_path)
-                
-                # Create and show plot window with data processor
-                file_name = file_path.split('/')[-1]  # Extract file name
-                self.plot_window = PlotWindow(df, file_name, self.data_processor)  # Pass data_processor
+                self.data_processor.process_data(self.file_path)
+                self.plot_window = PlotWindow(self.data_processor)  # Pass data_processor
                 self.plot_window.show()
                 
                 # Hide the main window

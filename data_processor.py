@@ -1,26 +1,71 @@
+import os
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
 class DataProcessor:
-    def __init__(self):
+    def __init__(self, file_path=None):
         self.raw_data = None
-        self.df = None
-        self.max_slope = None
-        self.slope_points = None
+        self.original_df = None
+        self.df_for_area_calculation = None
+        self.folder_path = None
+        self.file_name = None
+        self.line_points = None
 
-    def process_file(self, file_path):
+        self.max_slope = None
+        self.original_slope_point_one = None
+        self.original_slope_point_two = None
+        self.custom_slope = None
+        self.custom_slope_point_one = None
+        self.custom_slope_point_two = None
+        
+        self.max_value = None
+        self.max_x = None
+        self.area_under_curve = None
+        self.original_yield_displacement = None
+        self.original_yield_strength = None
+        self.yield_displacement = None
+        self.yield_strength = None
+
+        if file_path:
+            self.process_data(file_path)
+
+    def reset_data(self):
+        self.custom_slope = self.max_slope
+        self.custom_slope_point_one = self.original_slope_point_one
+        self.custom_slope_point_two = self.original_slope_point_two
+        self.yield_displacement = self.original_yield_displacement
+        self.yield_strength = self.original_yield_strength
+
+    def set_yield_point(self, x, y):
+        self.yield_displacement = x
+        self.yield_strength = y
+    
+    def set_custom_slope_point_one(self, x, y):
+        self.custom_slope_point_one = (x, y)
+
+    def set_custom_slope_point_two(self, x, y):
+        self.custom_slope_point_two = (x, y)
+
+    def calculate_custom_slope(self):
+        x1, y1 = self.custom_slope_point_one
+        x2, y2 = self.custom_slope_point_two
+        self.custom_slope = (y2 - y1) / (x2 - x1)
+
+    def process_data(self, file_path):
         """Process the text file and create a DataFrame."""
         try:
             # Read and clean data
             with open(file_path, 'r') as file:
                 self.raw_data = file.readlines()
+            self.folder_path = os.path.dirname(file_path)
+            self.file_name = os.path.basename(file_path).split('.')[0]
             
             self.raw_data = [line for line in self.raw_data if line[:12] != "Axial Counts"][5:]
             clean_data = [[x.strip() for x in line.split('\t') if x.strip()][1:6] for line in self.raw_data]
             
             # Create DataFrame
-            self.df = pd.DataFrame(clean_data, columns=[
+            self.original_df = pd.DataFrame(clean_data, columns=[
                 'Elapsed Time',
                 'Scan Time',
                 'Display 1',
@@ -29,27 +74,42 @@ class DataProcessor:
             ]).astype(float)
             
             # Process data
-            self.df['Load 1'] = 0 - self.df['Load 1']
-            self.df['Display 1'] = 0 - self.df['Display 1']
-            self.df['Elapsed Time'] = self.df['Elapsed Time'] * 0.01
+            self.original_df['Load 1'] = 0 - self.original_df['Load 1']
+            self.original_df['Display 1'] = 0 - self.original_df['Display 1']
             
             # Trim data after max Load 1 drops below 5
-            max_index = self.df['Load 1'].idxmax()
-            for i in range(max_index + 1, len(self.df)):
-                if self.df['Load 1'].iloc[i] < 5:
-                    self.df = self.df.iloc[:i]
+            max_index = self.original_df['Load 1'].idxmax()
+            for i in range(max_index + 1, len(self.original_df)):
+                if self.original_df['Load 1'].iloc[i] < 5:
+                    self.original_df = self.original_df.iloc[:i]
                     break
 
             self.calculate_max_slope()
-            return self.df
+            self.custom_slope = self.max_slope
+            self.custom_slope_point_one, self.custom_slope_point_two = self.original_slope_point_one, self.original_slope_point_two
+            self.max_value = self.original_df['Load 1'].max()
+            self.max_x = self.original_df['Display 1'][max_index]
+
+            min_x_idx = self.original_df['Display 1'].idxmin()
+            self.original_yield_displacement = self.original_df['Display 1'][min_x_idx]
+            self.original_yield_strength = self.original_df['Load 1'][min_x_idx]
+            self.yield_displacement = self.original_yield_displacement
+            self.yield_strength = self.original_yield_strength
+
+            self.calculate_area_under_curve()
             
         except Exception as e:
             raise Exception(f"Processing failed: {str(e)}")
+
+    def calculate_area_under_curve(self):
+        """Calculate the area under the curve."""
+        self.df_for_area_calculation = self.original_df.groupby('Display 1')['Load 1'].mean().reset_index().sort_values('Display 1')
+        self.area_under_curve = np.trapz(self.df_for_area_calculation['Load 1'], self.df_for_area_calculation['Display 1'])
         
     def calculate_max_slope(self):
         """Calculate maximum slope and find the line that passes through most points."""
         # Filter data between 0.01 and 0.1
-        filtered_df = self.df[(self.df['Display 1'] < 0.1) & (self.df['Display 1'] > 0.01)].copy()
+        filtered_df = self.original_df[(self.original_df['Display 1'] < 0.1) & (self.original_df['Display 1'] > 0.01)].copy()
         filtered_df = filtered_df.sort_values('Display 1')
         
         # Define the ranges for segments
@@ -123,7 +183,7 @@ class DataProcessor:
                 best_offset = y1 - max_slope * x1  # Could also use y2 - max_slope * x2
                 
                 # Store the actual points that are on the line
-                self.slope_points = ((x1, y1), (x2, y2))
+                self.original_slope_point_one, self.original_slope_point_two = (x1, y1), (x2, y2)
                 
                 # Calculate extended line points
                 x_range = x2 - x1
@@ -136,4 +196,3 @@ class DataProcessor:
                 
                 # Store the extended line points
                 self.line_points = ((x1_extended, y1_extended), (x2_extended, y2_extended))
-        
