@@ -13,7 +13,7 @@ class PlotWindow(QMainWindow):
         self.data_processor = data_processor
         self.setWindowTitle("Data Visualization")
         self.setFixedSize(1200, 700)
-
+    
         # Create central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -210,7 +210,6 @@ class PlotWindow(QMainWindow):
         # Use fixed column names instead of getting from dropdowns
         self.figure.clear()
         ax = self.figure.add_subplot(111)
-
         # Create scatter plot with smaller data points
         ax.scatter(self.data_processor.original_df["Display 1"], self.data_processor.original_df["Load 1"], alpha=0.5, color='#1f77b4', s=10)
         # Highlight the max point in Load 1
@@ -223,7 +222,6 @@ class PlotWindow(QMainWindow):
                     xytext=(10, 10),
                     textcoords='offset points',
                     color='red')
-        
         (x1, y1), (x2, y2) = self.data_processor.line_points
         ax.plot([x1, x2], [y1, y2], color='purple', linewidth=2, 
                 label=f'Stiffness')
@@ -238,10 +236,10 @@ class PlotWindow(QMainWindow):
             ax.scatter(px2, py2, color='blue', s=100, picker=True),
             ax.scatter(min_x, min_y, color='green', s=100, picker=True, label='Yield Point')
         ]
-        
+
         # Draw line between blue interactive points only
         self.interactive_line, = ax.plot([px1, px2], [py1, py2], 'b--', linewidth=1)
-        
+
         # Add slope text boxes with better positioning and styling
         ax.text(0.02, 0.98, 
                 f'Calculated Max Slope: {self.data_processor.max_slope:.4f}',
@@ -338,7 +336,7 @@ class PlotWindow(QMainWindow):
             self,
             "Select Text File",
             "",
-            "Text Files (*.txt);;All Files (*)"
+            "Text Files (*.txt *.TXT);;All Files (*)"
         )
         if file_path:
             try:

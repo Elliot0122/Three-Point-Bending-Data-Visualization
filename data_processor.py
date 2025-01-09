@@ -62,8 +62,8 @@ class DataProcessor:
             self.file_name = os.path.basename(file_path).split('.')[0]
             
             self.raw_data = [line for line in self.raw_data if line[:12] != "Axial Counts"][5:]
-            clean_data = [[x.strip() for x in line.split('\t') if x.strip()][1:6] for line in self.raw_data]
-            
+            clean_data = [[x.strip() for x in line.split(',' if ',' in self.raw_data[0] else '\t') if x.strip()][1:6] for line in self.raw_data]
+
             # Create DataFrame
             self.original_df = pd.DataFrame(clean_data, columns=[
                 'Elapsed Time',
@@ -72,10 +72,12 @@ class DataProcessor:
                 'Load 1',
                 'Load 2',
             ]).astype(float)
-            
+
             # Process data
             self.original_df['Load 1'] = 0 - self.original_df['Load 1']
             self.original_df['Display 1'] = 0 - self.original_df['Display 1']
+            if self.original_df['Display 1'][0] > 0.005:
+                self.original_df['Display 1'] = self.original_df['Display 1'] - self.original_df['Display 1'][0]
             
             # Trim data after max Load 1 drops below 5
             max_index = self.original_df['Load 1'].idxmax()

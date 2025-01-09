@@ -57,7 +57,7 @@ class MainWindow(QMainWindow):
             self,
             "Select Text File",
             "",
-            "Text Files (*.txt);;All Files (*)"
+            "Text Files (*.txt *.TXT);;All Files (*)"
         )
         
         if file_path:
