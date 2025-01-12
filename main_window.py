@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
             try:
                 self.file_path = file_path
                 # Process data immediately
-                self.data_processor.process_data(self.file_path)
+                self.data_processor.process_file(self.file_path)
                 self.plot_window = PlotWindow(self.data_processor)  # Pass data_processor
                 self.plot_window.show()
                 

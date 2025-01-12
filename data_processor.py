@@ -11,6 +11,7 @@ class DataProcessor:
         self.folder_path = None
         self.file_name = None
         self.line_points = None
+        self.columns = None
 
         self.max_slope = None
         self.original_slope_point_one = None
@@ -28,7 +29,7 @@ class DataProcessor:
         self.yield_strength = None
 
         if file_path:
-            self.process_data(file_path)
+            self.process_file(file_path)
 
     def reset_data(self):
         self.custom_slope = self.max_slope
@@ -52,7 +53,7 @@ class DataProcessor:
         x2, y2 = self.custom_slope_point_two
         self.custom_slope = (y2 - y1) / (x2 - x1)
 
-    def process_data(self, file_path):
+    def process_file(self, file_path):
         """Process the text file and create a DataFrame."""
         try:
             # Read and clean data
@@ -62,57 +63,59 @@ class DataProcessor:
             self.file_name = os.path.basename(file_path).split('.')[0]
             
             self.raw_data = [line for line in self.raw_data if line[:12] != "Axial Counts"][5:]
-            clean_data = [[x.strip() for x in line.split(',' if ',' in self.raw_data[0] else '\t') if x.strip()][1:6] for line in self.raw_data]
-
-            # Create DataFrame
-            self.original_df = pd.DataFrame(clean_data, columns=[
+            self.columns = [
                 'Elapsed Time',
                 'Scan Time',
                 'Display 1',
                 'Load 1',
                 'Load 2',
-            ]).astype(float)
-
-            # Process data
-            self.original_df['Load 1'] = 0 - self.original_df['Load 1']
-            self.original_df['Display 1'] = 0 - self.original_df['Display 1']
-            if self.original_df['Display 1'][0] > 0.005:
-                self.original_df['Display 1'] = self.original_df['Display 1'] - self.original_df['Display 1'][0]
-            
-            # Trim data after max Load 1 drops below 5
-            max_index = self.original_df['Load 1'].idxmax()
-            for i in range(max_index + 1, len(self.original_df)):
-                if self.original_df['Load 1'].iloc[i] < 5:
-                    self.original_df = self.original_df.iloc[:i]
-                    break
-
-            self.calculate_max_slope()
-            self.custom_slope = self.max_slope
-            self.custom_slope_point_one, self.custom_slope_point_two = self.original_slope_point_one, self.original_slope_point_two
-            self.max_value = self.original_df['Load 1'].max()
-            self.max_x = self.original_df['Display 1'][max_index]
-
-            min_x_idx = self.original_df['Display 1'].idxmin()
-            self.original_yield_displacement = self.original_df['Display 1'][min_x_idx]
-            self.original_yield_strength = self.original_df['Load 1'][min_x_idx]
-            self.yield_displacement = self.original_yield_displacement
-            self.yield_strength = self.original_yield_strength
-
-            self.calculate_area_under_curve()
-            
+            ]
+                
         except Exception as e:
             raise Exception(f"Processing failed: {str(e)}")
-
-    def calculate_area_under_curve(self):
-        """Calculate the area under the curve."""
-        self.df_for_area_calculation = self.original_df.groupby('Display 1')['Load 1'].mean().reset_index().sort_values('Display 1')
-        self.area_under_curve = np.trapz(self.df_for_area_calculation['Load 1'], self.df_for_area_calculation['Display 1'])
         
-    def calculate_max_slope(self):
+    def process_data(self, x_col, y_col):
+        clean_data = [[x.strip() for x in line.split(',' if ',' in self.raw_data[0] else '\t') if x.strip()][1:6] for line in self.raw_data]
+        # Create DataFrame
+        self.original_df = pd.DataFrame(clean_data, columns=self.columns).astype(float)
+
+        self.original_df[y_col] = 0 - self.original_df[y_col]
+        self.original_df[x_col] = 0 - self.original_df[x_col]
+        if self.original_df[x_col][0] > 0.005:
+            self.original_df[x_col] = self.original_df[x_col] - self.original_df[x_col][0]
+        max_index = self.original_df[y_col].idxmax()
+        for i in range(max_index + 1, len(self.original_df)):
+            if self.original_df[y_col].iloc[i] < 5:
+                self.original_df = self.original_df.iloc[:i]
+                break
+        
+    def set_columns(self, x_col, y_col):
+        self.process_data(x_col, y_col)
+        max_index = self.original_df[y_col].idxmax()
+        self.calculate_max_slope(x_col, y_col)
+        self.custom_slope = self.max_slope
+        self.custom_slope_point_one, self.custom_slope_point_two = self.original_slope_point_one, self.original_slope_point_two
+        self.max_value = self.original_df[y_col].max()
+        self.max_x = self.original_df[x_col][max_index]
+
+        min_x_idx = self.original_df[x_col].idxmin()
+        self.original_yield_displacement = self.original_df[x_col][min_x_idx]
+        self.original_yield_strength = self.original_df[y_col][min_x_idx]
+        self.yield_displacement = self.original_yield_displacement
+        self.yield_strength = self.original_yield_strength
+
+        self.calculate_area_under_curve(x_col, y_col)
+
+    def calculate_area_under_curve(self, x_col, y_col):
+        """Calculate the area under the curve."""
+        self.df_for_area_calculation = self.original_df.groupby(x_col)[y_col].mean().reset_index().sort_values(x_col)
+        self.area_under_curve = np.trapz(self.df_for_area_calculation[y_col], self.df_for_area_calculation[x_col])
+        
+    def calculate_max_slope(self, x_col, y_col):
         """Calculate maximum slope and find the line that passes through most points."""
         # Filter data between 0.01 and 0.1
-        filtered_df = self.original_df[(self.original_df['Display 1'] < 0.1) & (self.original_df['Display 1'] > 0.01)].copy()
-        filtered_df = filtered_df.sort_values('Display 1')
+        filtered_df = self.original_df[(self.original_df[x_col] < 0.1) & (self.original_df[x_col] > 0.01)].copy()
+        filtered_df = filtered_df.sort_values(x_col)
         
         # Define the ranges for segments
         ranges = [
@@ -126,15 +129,15 @@ class DataProcessor:
         max_slope = float('-inf')
         for start, end in ranges:
             segment = filtered_df[
-                (filtered_df['Display 1'] >= start) & 
-                (filtered_df['Display 1'] <= end)
+                (filtered_df[x_col] >= start) & 
+                (filtered_df[x_col] <= end)
             ]
             
             if len(segment) < 2:
                 continue
                 
-            X = segment['Display 1'].values.reshape(-1, 1)
-            y = segment['Load 1'].values.reshape(-1, 1)
+            X = segment[x_col].values.reshape(-1, 1)
+            y = segment[y_col].values.reshape(-1, 1)
             
             reg = LinearRegression()
             reg.fit(X, y)
@@ -147,7 +150,7 @@ class DataProcessor:
             self.max_slope = max_slope
             
             # Step 2: Try different offsets to find the one that passes through most points
-            all_points = filtered_df[['Display 1', 'Load 1']].values
+            all_points = filtered_df[[x_col, y_col]].values
             best_offset = None
             max_points_count = 0
             points_on_best_line = None
