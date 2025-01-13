@@ -333,9 +333,9 @@ class PlotWindow(QMainWindow):
             # Find the closest x-value in the dataset
             x_col = self.x_combo.currentText()
             y_col = self.y_combo.currentText()
-            closest_index = (self.data_processor.original_df[y_col] - event.xdata).abs().idxmin()
-            closest_x = self.data_processor.original_df[y_col][closest_index]
-            closest_y = self.data_processor.original_df[x_col][closest_index]
+            closest_index = (self.data_processor.original_df[x_col] - event.xdata).abs().idxmin()
+            closest_x = self.data_processor.original_df[x_col][closest_index]
+            closest_y = self.data_processor.original_df[y_col][closest_index]
             
             # Move the point to the closest data point
             self.selected_point.set_offsets([closest_x, closest_y])
