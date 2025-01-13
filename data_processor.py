@@ -84,8 +84,8 @@ class DataProcessor:
         if self.original_df[x_col][0] > 0.005:
             self.original_df[x_col] = self.original_df[x_col] - self.original_df[x_col][0]
         max_index = self.original_df[y_col].idxmax()
-        for i in range(max_index + 1, len(self.original_df)):
-            if self.original_df[y_col].iloc[i] < 5:
+        for i in range(max_index+1, len(self.original_df)):
+            if self.original_df[y_col][i-1] - self.original_df[y_col][i] > 1:
                 self.original_df = self.original_df.iloc[:i]
                 break
         
