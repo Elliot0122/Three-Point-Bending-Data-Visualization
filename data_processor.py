@@ -63,6 +63,7 @@ class DataProcessor:
             self.file_name = os.path.basename(file_path).split('.')[0]
             
             self.raw_data = [line for line in self.raw_data if line[:12] != "Axial Counts"][5:]
+            print(len(self.raw_data))
             self.columns = [
                 'Elapsed Time',
                 'Scan Time',
