@@ -230,8 +230,14 @@ class PlotWindow(QMainWindow):
         self.y_combo.clear()
         self.x_combo.addItems(columns)
         self.y_combo.addItems(columns)
-        self.x_combo.setCurrentText("Display 1")
-        self.y_combo.setCurrentText("Load 1")
+        if "Displacement" in columns:
+            self.x_combo.setCurrentText("Displacement")
+        elif "Display 1" in columns:
+            self.x_combo.setCurrentText("Display 1")
+        if "Force" in columns:
+            self.y_combo.setCurrentText("Force")
+        elif "Load 1" in columns:
+            self.y_combo.setCurrentText("Load 1")
         
     def update_plot(self):
         self.custom_slope_point_one_annotation = None
@@ -246,7 +252,7 @@ class PlotWindow(QMainWindow):
         ax = self.figure.add_subplot(111)
         # Create scatter plot with smaller data points
         ax.scatter(self.data_processor.original_df[x_col], self.data_processor.original_df[y_col], alpha=0.5, color='#1f77b4', s=10)
-        # Highlight the max point in Load 1
+        # Highlight the max point in Force
         max_value = self.data_processor.max_value
         max_x = self.data_processor.max_x
         ax.scatter(max_x, max_value, color='red', s=100, label='Maximum Strength')
@@ -313,8 +319,8 @@ class PlotWindow(QMainWindow):
         self.canvas.mpl_connect('motion_notify_event', self.on_motion)
         self.canvas.mpl_connect('button_release_event', self.on_release)
         # Style the plot
-        ax.set_xlabel(y_col, fontsize=12)
-        ax.set_ylabel(x_col, fontsize=12)
+        ax.set_xlabel(x_col, fontsize=12)
+        ax.set_ylabel(y_col, fontsize=12)
         ax.grid(True, linestyle='--', alpha=0.7)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
@@ -367,9 +373,9 @@ class PlotWindow(QMainWindow):
     def select_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Select Text File",
+            "Select Data File",
             "",
-            "Text Files (*.txt *.TXT);;All Files (*)"
+            "Data Files (*.txt *.TXT *.csv *.CSV);;Text Files (*.txt *.TXT);;CSV Files (*.csv *.CSV);;All Files (*)"
         )
         if file_path:
             try:

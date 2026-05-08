@@ -30,12 +30,12 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
         # Status label
-        self.status_label = QLabel("Please select a text file", central_widget)
+        self.status_label = QLabel("Please select a data file (.txt or .csv)", central_widget)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setGeometry(50, 50, 500, 30)
 
         # Upload button
-        self.upload_button = QPushButton("Upload Text File", central_widget)
+        self.upload_button = QPushButton("Upload Data File", central_widget)
         self.upload_button.setGeometry(150, 150, 300, 60)
         self.upload_button.setStyleSheet("""
             QPushButton {
@@ -62,7 +62,12 @@ class MainWindow(QMainWindow):
         self.setStyleSheet("QLabel { font-size: 24px; color: #333333; }")
 
     def upload_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Text File", "", "Text Files (*.txt *.TXT);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Data File",
+            "",
+            "Data Files (*.txt *.TXT *.csv *.CSV);;Text Files (*.txt *.TXT);;CSV Files (*.csv *.CSV);;All Files (*)"
+        )
         if file_path:
             self.file_path = file_path
             self.status_label.setText("Processing file...")

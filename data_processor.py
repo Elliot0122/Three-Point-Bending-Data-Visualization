@@ -12,6 +12,7 @@ class DataProcessor:
         self.file_name = None
         self.line_points = None
         self.columns = None
+        self.source_df = None
 
         self.max_slope = None
         self.original_slope_point_one = None
@@ -51,37 +52,56 @@ class DataProcessor:
     def calculate_custom_slope(self):
         x1, y1 = self.custom_slope_point_one
         x2, y2 = self.custom_slope_point_two
-        self.custom_slope = (y2 - y1) / (x2 - x1)
+        if x2 == x1:
+            self.custom_slope = 0.0
+        else:
+            self.custom_slope = (y2 - y1) / (x2 - x1)
 
     def process_file(self, file_path):
-        """Process the text file and create a DataFrame."""
+        """Process text/csv file and prepare source data."""
         try:
-            # Read and clean data
-            with open(file_path, 'r') as file:
-                self.raw_data = file.readlines()
             self.folder_path = os.path.dirname(file_path)
             self.file_name = os.path.basename(file_path).split('.')[0]
-            
-            self.raw_data = [line for line in self.raw_data if line[:12] != "Axial Counts"][5:]
-            print(len(self.raw_data))
-            self.columns = [
-                'Elapsed Time',
-                'Scan Time',
-                'Display 1',
-                'Load 1',
-                'Load 2',
-            ]
+
+            self.source_df = None
+            self.raw_data = None
+
+            if file_path.lower().endswith(".csv"):
+                df = pd.read_csv(file_path)
+                df.columns = [col.strip() for col in df.columns]
+                for col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                df = df.dropna(how='all')
+                self.source_df = df
+                self.columns = df.columns.tolist()
+            else:
+                with open(file_path, 'r') as file:
+                    self.raw_data = file.readlines()
+
+                self.raw_data = [line for line in self.raw_data if line[:12] != "Axial Counts"][5:]
+                self.columns = [
+                    'Elapsed Time',
+                    'Scan Time',
+                    'Display 1',
+                    'Load 1',
+                    'Load 2',
+                ]
                 
         except Exception as e:
             raise Exception(f"Processing failed: {str(e)}")
         
     def process_data(self, x_col, y_col):
-        clean_data = [[x.strip() for x in line.split(',' if ',' in self.raw_data[0] else '\t') if x.strip()][1:6] for line in self.raw_data]
-        # Create DataFrame
-        self.original_df = pd.DataFrame(clean_data, columns=self.columns).astype(float)
+        if self.source_df is not None:
+            self.original_df = self.source_df.copy()
+            self.original_df = self.original_df.dropna(subset=[x_col, y_col]).reset_index(drop=True)
+        else:
+            clean_data = [[x.strip() for x in line.split(',' if ',' in self.raw_data[0] else '\t') if x.strip()][1:6] for line in self.raw_data]
+            self.original_df = pd.DataFrame(clean_data, columns=self.columns[:5])
+            self.original_df = self.original_df.apply(pd.to_numeric, errors='coerce')
+            self.original_df = self.original_df.dropna(subset=[x_col, y_col]).reset_index(drop=True)
 
-        self.original_df[y_col] = 0 - self.original_df[y_col]
-        self.original_df[x_col] = 0 - self.original_df[x_col]
+        self.original_df[y_col] = self.original_df[y_col].abs()
+        self.original_df[x_col] = self.original_df[x_col]
         if self.original_df[x_col][0] > 0.005:
             self.original_df[x_col] = self.original_df[x_col] - self.original_df[x_col][0]
         max_index = self.original_df[y_col].idxmax()
@@ -114,6 +134,29 @@ class DataProcessor:
         
     def calculate_max_slope(self, x_col, y_col):
         """Calculate maximum slope and find the line that passes through most points."""
+        # Set safe defaults so plotting never fails.
+        sorted_df = self.original_df.sort_values(x_col).dropna(subset=[x_col, y_col]).reset_index(drop=True)
+        if len(sorted_df) < 2:
+            self.max_slope = 0.0
+            if len(sorted_df) == 1:
+                x1, y1 = float(sorted_df.iloc[0][x_col]), float(sorted_df.iloc[0][y_col])
+                self.original_slope_point_one = (x1, y1)
+                self.original_slope_point_two = (x1 + 1e-6, y1)
+                self.line_points = ((x1, y1), (x1 + 1e-6, y1))
+            else:
+                self.original_slope_point_one = (0.0, 0.0)
+                self.original_slope_point_two = (1e-6, 0.0)
+                self.line_points = ((0.0, 0.0), (1e-6, 0.0))
+            return
+
+        fallback_p1 = (float(sorted_df.iloc[0][x_col]), float(sorted_df.iloc[0][y_col]))
+        fallback_p2 = (float(sorted_df.iloc[-1][x_col]), float(sorted_df.iloc[-1][y_col]))
+        dx = fallback_p2[0] - fallback_p1[0]
+        fallback_slope = 0.0 if dx == 0 else (fallback_p2[1] - fallback_p1[1]) / dx
+        self.max_slope = fallback_slope
+        self.original_slope_point_one, self.original_slope_point_two = fallback_p1, fallback_p2
+        self.line_points = (fallback_p1, fallback_p2)
+
         # Filter data between 0.01 and 0.1
         filtered_df = self.original_df[(self.original_df[x_col] < 0.1) & (self.original_df[x_col] > 0.01)].copy()
         filtered_df = filtered_df.sort_values(x_col)
@@ -175,6 +218,8 @@ class DataProcessor:
             # Step 3: Get the min and max x-value points that lie on the line
             if points_on_best_line is not None:
                 line_points = all_points[points_on_best_line]
+                if len(line_points) == 0:
+                    return
                 min_x_idx = np.argmin(line_points[:, 0])
                 max_x_idx = np.argmax(line_points[:, 0])
                 
